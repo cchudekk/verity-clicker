@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Верити</title>
+<style>
+:root{
+  --bg1:#1b2646;--bg2:#34457a;--ink:#f3f0ff;--soft:rgba(243,240,255,.62);
+  --card:rgba(255,255,255,.09);--card-hi:rgba(255,255,255,.17);--sun:#ffd23f;--dark:#3a2a10;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg1);color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded","Trebuchet MS","Segoe UI",system-ui,sans-serif;touch-action:manipulation}
+#app{position:fixed;inset:0;background:radial-gradient(120% 90% at 50% 35%,var(--bg2),var(--bg1));overflow:hidden}
+
+#hud{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;text-align:center;
+  opacity:0;transition:opacity 1.2s ease;pointer-events:none}
+#balance{font-size:clamp(34px,9vw,60px);font-weight:800;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+
+#hint{position:absolute;left:50%;top:calc(50% - min(24vmin,110px) - 56px);transform:translateX(-50%);
+  font-size:clamp(20px,5vw,28px);font-weight:700;opacity:0;transition:opacity 1.2s ease;white-space:nowrap;pointer-events:none}
+#box{position:absolute;left:50%;top:50%;width:min(40vmin,190px);transform:translate(-50%,-50%);
+  opacity:0;transition:opacity 1.2s ease;border:0;background:none;padding:0;cursor:pointer}
+#box svg{display:block;width:100%;height:auto;overflow:visible}
+#box.show,#hint.show,#hud.show,#bottom.show{opacity:1}
+#box.shake svg{animation:shake .5s ease}
+#box.gone{opacity:0;transition:opacity 1s ease;pointer-events:none}
+#hint.gone{opacity:0;transition:opacity .4s ease}
+@keyframes shake{0%,100%{transform:rotate(0)}20%{transform:rotate(-7deg)}40%{transform:rotate(6deg)}60%{transform:rotate(-4deg)}80%{transform:rotate(3deg)}}
+
+#verity{position:absolute;left:50%;top:50%;width:min(46vmin,250px);aspect-ratio:1;padding:0;border:0;background:none;
+  transform:translate(-50%,-50%) scale(.1);opacity:0;pointer-events:none;cursor:pointer}
+#verity.out{opacity:1;transform:translate(-50%,-50%) scale(1);
+  transition:transform .7s cubic-bezier(.3,1.6,.5,1),opacity .2s ease}
+#verity.up{top:38%;transition:top .9s ease,transform .7s cubic-bezier(.3,1.6,.5,1)}
+#verity.live{pointer-events:auto}
+#verity svg{display:block;width:100%;height:100%;filter:drop-shadow(0 0 26px rgba(255,210,63,.35))}
+#verity .face{transform-origin:50% 50%}
+#verity.pop .face{animation:pop .16s ease}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(.9)}100%{transform:scale(1)}}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+
+.plus{position:absolute;font-size:clamp(22px,5vw,30px);font-weight:800;color:var(--sun);pointer-events:none;
+  animation:rise .9s ease-out forwards;transform:translate(-50%,-50%);text-shadow:0 2px 8px rgba(0,0,0,.35)}
+@keyframes rise{to{transform:translate(-50%,-150px);opacity:0}}
+
+#bottom{position:absolute;left:0;right:0;bottom:0;padding:0 14px calc(env(safe-area-inset-bottom,0px) + 14px);
+  opacity:0;transition:opacity 1.2s ease;display:flex;flex-direction:column;align-items:center;gap:12px}
+#subs{min-height:3.4em;max-width:34em;text-align:center;font-size:clamp(16px,4.2vw,21px);line-height:1.4;font-weight:600}
+#list{width:100%;max-width:34em;max-height:32vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:2px}
+.up-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;
+  padding:12px 14px;border-radius:14px;border:0;background:var(--card-hi);color:var(--ink);font:inherit;cursor:pointer;
+  animation:in .5s ease}
+.up-row .name{font-weight:700;font-size:clamp(15px,4vw,18px)}
+.up-row .meta{font-size:13px;color:var(--soft);margin-top:2px}
+.up-row .price{font-weight:800;color:var(--sun);white-space:nowrap;font-size:clamp(16px,4vw,19px)}
+.up-row.locked{background:var(--card);cursor:default}
+.up-row.locked .name,.up-row.locked .price{opacity:.55}
+.up-row:focus-visible,#verity:focus-visible,#box:focus-visible{outline:3px solid var(--sun);outline-offset:3px;border-radius:14px}
+.up-row:not(.locked):active{transform:scale(.985)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#flash{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(circle at 50% 38%,rgba(120,205,255,.8),rgba(60,140,255,.3) 55%,transparent 85%)}
+#flash.go{animation:flash .6s ease-out}
+@keyframes flash{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+#critText{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 96px);text-align:center;pointer-events:none;
+  font-size:clamp(22px,6vw,38px);font-weight:800;color:#a9ecff;text-shadow:0 0 14px #3aa0ff,0 2px 6px rgba(0,0,0,.4);opacity:0}
+#critText.go{animation:critT 1s ease-out}
+@keyframes critT{0%{opacity:0;transform:scale(.8)}15%{opacity:1;transform:scale(1.08)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-8px)}}
+.bolts{position:absolute;pointer-events:none;overflow:visible;animation:zap .5s steps(1) forwards}
+@keyframes zap{0%{opacity:1}20%{opacity:.2}35%{opacity:1}55%{opacity:.3}75%{opacity:.9}100%{opacity:0}}
+.plus.crit{color:#a9ecff;text-shadow:0 0 10px #3aa0ff,0 2px 8px rgba(0,0,0,.35)}
+#voiceBtn{position:absolute;right:12px;top:calc(env(safe-area-inset-top,0px) + 12px);padding:7px 12px;border-radius:999px;border:0;
+  background:var(--card-hi);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;opacity:0;transition:opacity 1.2s ease}
+#voiceBtn.show{opacity:1}
+#voiceBtn:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.eye,#box.shake svg{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud"><div id="balance">0₽</div></div>
+  <div id="hint">нажми на коробку</div>
+  <div id="flash"></div>
+  <div id="critText">критический клик!</div>
+  <button id="voiceBtn">голос: вкл</button>
+
+  <button id="box" aria-label="Коробка">
+    <svg viewBox="0 0 200 180">
+      <rect x="10" y="60" width="180" height="115" rx="8" fill="#c99a65"/>
+      <rect x="10" y="60" width="180" height="22" fill="#b5864f"/>
+      <rect x="86" y="60" width="28" height="115" fill="#e7cfa6" opacity=".85"/>
+      <path d="M10 60 L40 20 L100 40 L100 60Z" fill="#dbb27c"/>
+      <path d="M190 60 L160 20 L100 40 L100 60Z" fill="#cfa46d"/>
+    </svg>
+  </button>
+
+  <button id="verity" aria-label="Верити">
+    <svg viewBox="0 0 200 200"><g class="face">
+      <circle cx="100" cy="100" r="100" fill="#ffd23f"/>
+      <ellipse class="eye" cx="70" cy="84" rx="9" ry="13" fill="#3a2a10"/>
+      <ellipse class="eye" cx="130" cy="84" rx="9" ry="13" fill="#3a2a10"/>
+      <path id="mIdle" d="M66 124 Q100 156 134 124" fill="none" stroke="#3a2a10" stroke-width="7" stroke-linecap="round"/>
+      <ellipse id="mTalk" cx="100" cy="134" rx="19" ry="4" fill="#3a2a10" style="display:none"/>
+    </g></svg>
+  </button>
+
+  <div id="bottom">
+    <div id="subs" aria-live="polite"></div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script src="/sdk.js"></script>
+<script>
+/* ---------- Яндекс SDK ---------- */
+try{
+  if(window.YaGames){
+    YaGames.init().then(function(y){
+      window.ysdk=y;
+      if(y.features&&y.features.LoadingAPI)y.features.LoadingAPI.ready();
+    }).catch(function(){});
+  }
+}catch(e){}
+
+/* ---------- Музыка ----------
+   Положи свои треки без авторских прав в папку music/ и впиши пути сюда,
+   например ['music/1.mp3','music/2.mp3']. Если список пуст, играет
+   встроенная спокойная музыка, которая создаётся прямо в игре. */
+var PLAYLIST=[];
+
+var ac=null,master=null,musicBus=null,plAudio=null,plIdx=0,musicOn=false;
+function initAudio(){
+  if(ac)return;
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  ac=new AC();
+  master=ac.createGain();master.gain.value=.9;master.connect(ac.destination);
+  startMusic();
+}
+function startMusic(){
+  if(PLAYLIST.length){
+    plAudio=new Audio();plAudio.volume=.4;
+    var next=function(){plAudio.src=PLAYLIST[plIdx%PLAYLIST.length];plIdx++;plAudio.play().catch(function(){});};
+    plAudio.addEventListener('ended',next);next();return;
+  }
+  musicOn=true;
+  musicBus=ac.createGain();musicBus.gain.value=.16;
+  var lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;
+  musicBus.connect(lp);lp.connect(master);
+  var chords=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],ci=0;
+  var pent=[69,72,74,76,79,81];
+  function hz(m){return 440*Math.pow(2,(m-69)/12);}
+  function tone(m,when,att,dur,gain,type){
+    var o=ac.createOscillator(),g=ac.createGain();
+    o.type=type;o.frequency.value=hz(m);
+    g.gain.setValueAtTime(0,when);
+    g.gain.linearRampToValueAtTime(gain,when+att);
+    g.gain.exponentialRampToValueAtTime(.0001,when+att+dur);
+    o.connect(g);g.connect(musicBus);o.start(when);o.stop(when+att+dur+.1);
+  }
+  function chord(){
+    if(!musicOn)return;
+    var t=ac.currentTime+.05,c=chords[ci++%chords.length];
+    c.forEach(function(m){tone(m-12,t,2.2,4.5,.5,'sine');tone(m,t,2.5,4,.22,'triangle');});
+    setTimeout(chord,6500);
+  }
+  function bell(){
+    if(!musicOn)return;
+    var m=pent[Math.floor(Math.random()*pent.length)];
+    tone(m,ac.currentTime+.02,.02,1.8,.35,'sine');
+    setTimeout(bell,1800+Math.random()*2600);
+  }
+  chord();setTimeout(bell,2500);
+}
+function blip(vol){
+  if(!ac)return;
+  var t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),f=520+Math.random()*140;
+  o.type='sine';
+  o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*1.6,t+.07);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+.13);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+.15);
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){
+    if(ac&&ac.state==='running')ac.suspend();
+    if(plAudio)plAudio.pause();
+  }else{
+    if(ac&&ac.state==='suspended')ac.resume();
+    if(plAudio&&plAudio.src)plAudio.play().catch(function(){});
+  }
+});
+
+/* ---------- Состояние ---------- */
+var S={
+  stage:'intro',          // intro, g25, buy1, g50, buy2, g500, free
+  bal:0,
+  click:1,
+  clickCost:25,
+  clickShown:false,
+  autoShown:false,
+  autoCost:50,
+  autos:[],
+  critShown:false,critPct:0,critCost:500,critMul:1.1,
+  mulShown:false,mulCost:1000
+};
+var BASE_INTERVAL=2000,MAX_LEVEL=16; // 16 уровень = интервал уменьшен на 75%
+
+var $=function(id){return document.getElementById(id);};
+var elBal=$('balance'),elSubs=$('subs'),elList=$('list'),elV=$('verity'),elBox=$('box');
+
+function fmt(n){
+  if(n>=1e9)return n.toExponential(2).replace('e+','e');
+  return (Math.round(n*100)/100).toLocaleString('ru-RU',{maximumFractionDigits:2});
+}
+function price(c){return Math.ceil(c-1e-9);}
+function interval(a){return BASE_INTERVAL*(1-0.05*(a.level-1));}
+
+/* ---------- Озвучка, субтитры, рот ---------- */
+var synth=window.speechSynthesis||null,voiceOn=!!synth,ruVoice=null,speaking=false,typing=false,uttId=0;
+function pickVoice(){
+  if(!synth)return;
+  var v=synth.getVoices();ruVoice=null;
+  for(var i=0;i<v.length;i++){
+    if(v[i].lang&&v[i].lang.toLowerCase().indexOf('ru')===0){
+      if(!ruVoice||/female|milena|irina|google/i.test(v[i].name))ruVoice=v[i];
+    }
+  }
+}
+if(synth){pickVoice();synth.onvoiceschanged=pickVoice;}
+function speak(text){
+  if(!synth||!voiceOn)return;
+  try{
+    var id=++uttId;
+    synth.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='ru-RU';if(ruVoice)u.voice=ruVoice;
+    u.rate=1.02;u.pitch=1.5;u.volume=1;
+    u.onstart=function(){if(id===uttId)speaking=true;};
+    u.onend=u.onerror=function(){if(id===uttId)speaking=false;};
+    synth.speak(u);
+  }catch(e){}
+}
+var voiceBtn=$('voiceBtn');
+if(!synth)voiceBtn.style.display='none';
+voiceBtn.addEventListener('click',function(){
+  voiceOn=!voiceOn;
+  voiceBtn.textContent='голос: '+(voiceOn?'вкл':'выкл');
+  if(!voiceOn&&synth){uttId++;synth.cancel();speaking=false;}
+});
+var typeTimer=null;
+function say(text){
+  clearInterval(typeTimer);
+  var i=0;elSubs.textContent='';typing=true;
+  speak(text);
+  typeTimer=setInterval(function(){
+    elSubs.textContent=text.slice(0,++i);
+    if(i>=text.length){clearInterval(typeTimer);typing=false;}
+  },(synth&&voiceOn)?52:24);
+}
+var mIdle=$('mIdle'),mTalk=$('mTalk'),wasTalk=false;
+function updateMouth(now){
+  var talk=typing||speaking;
+  if(talk){
+    var open=Math.abs(Math.sin(now/85))*(.6+.4*Math.sin(now/230));
+    mTalk.setAttribute('ry',(4+15*open).toFixed(1));
+    mTalk.setAttribute('rx',(21-5*open).toFixed(1));
+  }
+  if(talk!==wasTalk){
+    wasTalk=talk;
+    mTalk.style.display=talk?'':'none';
+    mIdle.style.display=talk?'none':'';
+  }
+}
+
+/* ---------- Клики ---------- */
+function floatText(txt,crit){
+  var r=elV.getBoundingClientRect();
+  var d=document.createElement('div');d.className='plus'+(crit?' crit':'');d.textContent=txt;
+  d.style.left=(r.left+r.width/2+(Math.random()-.5)*r.width*.5)+'px';
+  d.style.top=(r.top+r.height*.25)+'px';
+  $('app').appendChild(d);setTimeout(function(){d.remove();},950);
+}
+function popVerity(){
+  elV.classList.remove('pop');void elV.offsetWidth;elV.classList.add('pop');
+}
+function zap(){
+  if(!ac)return;
+  var t=ac.currentTime,len=(ac.sampleRate*.35)|0,buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0),i;
+  for(i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
+  var n=ac.createBufferSource();n.buffer=buf;
+  var hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;
+  var g=ac.createGain();g.gain.setValueAtTime(0,t);
+  for(i=0;i<14;i++)g.gain.setValueAtTime(Math.random()*.35,t+i*.022);
+  g.gain.linearRampToValueAtTime(0,t+.35);
+  n.connect(hp);hp.connect(g);g.connect(master);n.start(t);
+  var o=ac.createOscillator(),og=ac.createGain();
+  o.type='sawtooth';o.frequency.setValueAtTime(1400,t);o.frequency.exponentialRampToValueAtTime(90,t+.3);
+  og.gain.setValueAtTime(.1,t);og.gain.exponentialRampToValueAtTime(.0001,t+.32);
+  o.connect(og);og.connect(master);o.start(t);o.stop(t+.35);
+}
+function bolts(){
+  var r=elV.getBoundingClientRect(),R=r.width/2,cx=r.left+R,cy=r.top+R,ns='http://www.w3.org/2000/svg';
+  var sv=document.createElementNS(ns,'svg');
+  sv.setAttribute('class','bolts');
+  sv.setAttribute('viewBox',(-1.5*R)+' '+(-1.5*R)+' '+(3*R)+' '+(3*R));
+  sv.style.left=(cx-1.5*R)+'px';sv.style.top=(cy-1.5*R)+'px';
+  sv.style.width=sv.style.height=(3*R)+'px';
+  for(var i=0;i<8;i++){
+    var a=Math.random()*6.283,pts=[];
+    for(var k=0;k<5;k++){
+      var rad=R*(.92+k*.1),ang=a+(k?(Math.random()-.5)*.3:0);
+      pts.push((Math.cos(ang)*rad).toFixed(1)+','+(Math.sin(ang)*rad).toFixed(1));
+    }
+    [['#3aa0ff',R*.05,.55],['#d8f6ff',R*.018,1]].forEach(function(st){
+      var pl=document.createElementNS(ns,'polyline');
+      pl.setAttribute('points',pts.join(' '));pl.setAttribute('fill','none');
+      pl.setAttribute('stroke',st[0]);pl.setAttribute('stroke-width',st[1]);pl.setAttribute('opacity',st[2]);
+      pl.setAttribute('stroke-linejoin','round');pl.setAttribute('stroke-linecap','round');
+      sv.appendChild(pl);
+    });
+  }
+  $('app').appendChild(sv);setTimeout(function(){sv.remove();},520);
+}
+function retrigger(el){el.classList.remove('go');void el.offsetWidth;el.classList.add('go');}
+function critFx(){
+  zap();bolts();retrigger($('flash'));retrigger($('critText'));
+}
+function doClick(manual){
+  var gain=S.click,crit=false;
+  if(S.critPct>0&&Math.random()*100<S.critPct){crit=true;gain=Math.round(S.click*S.critMul*100)/100;}
+  S.bal=Math.round((S.bal+gain)*100)/100;
+  if(crit)critFx();else blip(manual?.22:.08);
+  popVerity();
+  floatText('+'+fmt(gain),crit);
+  progress();update();
+}
+elV.addEventListener('pointerdown',function(e){e.preventDefault();if(S.stage!=='intro')doClick(true);});
+elV.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();doClick(true);}});
+
+/* ---------- Прогресс сюжета ---------- */
+function progress(){
+  if(S.stage==='g25'&&S.bal>=25){
+    S.stage='buy1';S.clickShown=true;buildList();
+    say('молодец! ты накопил 25 рублей, теперь нажми на новое улучшение снизу, чтобы купить его');
+  }else if(S.stage==='g50'&&S.bal>=50){
+    S.stage='buy2';S.autoShown=true;buildList();
+    say('так держать! теперь купи улучшение автокликер');
+  }else if(S.stage==='g500'&&S.bal>=500){
+    S.stage='buy3';S.critShown=true;buildList();
+    say('ты накопил 500 рублей! теперь купи новое улучшение');
+  }else if(S.stage==='g1000'&&S.bal>=1000){
+    S.stage='buy4';S.mulShown=true;buildList();
+    say('вау! у тебя уже целых 1000 рублей! купи новое улучшение!');
+  }else if(S.stage==='g5000'&&S.bal>=5000){
+    S.stage='free';
+    say('ты накопил 5000 рублей! продолжай улучшать всё, что можешь');
+  }
+}
+
+/* ---------- Покупки ---------- */
+function buyClick(){
+  var p=price(S.clickCost);
+  if(S.bal<p)return;
+  S.bal=Math.round((S.bal-p)*100)/100;
+  S.click=(S.click===1)?2:Math.round(S.click*1.5*100)/100;
+  S.clickCost*=1.5;
+  blip(.25);
+  if(S.stage==='buy1'){
+    S.stage='g50';
+    say('теперь за каждый клик ты будешь получать не 1 рубль, как раньше, а 2 рубля! следующая твоя цель — 50 рублей');
+  }
+  buildList();update();
+}
+function buyAuto(idx){ // idx = номер автокликера или -1 для нового
+  var p=price(S.autoCost);
+  if(S.bal<p)return;
+  S.bal=Math.round((S.bal-p)*100)/100;
+  S.autoCost*=1.5;
+  if(idx<0)S.autos.push({level:1,t:0});
+  else S.autos[idx].level++;
+  blip(.25);
+  if(S.stage==='buy2'){
+    S.stage='g500';
+    say('хорошо, теперь тебе автоматически начисляется валюта. твоя следующая цель — 500 рублей');
+  }
+  buildList();update();
+}
+
+function buyCrit(){
+  var p=price(S.critCost);
+  if(S.bal<p||S.critPct>=75)return;
+  S.bal=Math.round((S.bal-p)*100)/100;
+  S.critPct=S.critPct===0?5:Math.min(75,S.critPct+2.5);
+  S.critCost*=1+S.critPct/100;
+  blip(.25);
+  if(S.stage==='buy3'){
+    S.stage='g1000';
+    say('теперь с шансом в 5% твой клик будет критическим! критический клик даёт больше валюты. твоя следующая цель — 1000 рублей');
+  }
+  buildList();update();
+}
+function buyMul(){
+  var p=price(S.mulCost);
+  if(S.bal<p)return;
+  S.bal=Math.round((S.bal-p)*100)/100;
+  S.critMul=Math.round((S.critMul+.1)*10)/10;
+  S.mulCost*=1.2;
+  blip(.25);
+  if(S.stage==='buy4'){
+    S.stage='g5000';
+    say('теперь ты можешь улучшать критические клики. твоя следующая цель — 5000');
+  }
+  buildList();update();
+}
+
+/* ---------- Список улучшений ---------- */
+var rows=[];
+function row(name,meta,cost,onClick){
+  var b=document.createElement('button');b.className='up-row';
+  b.innerHTML='<div><div class="name"></div><div class="meta"></div></div><div class="price"></div>';
+  b.querySelector('.name').textContent=name;
+  b.querySelector('.meta').textContent=meta;
+  b.querySelector('.price').textContent=cost===null?'макс.':fmt(price(cost))+'₽';
+  if(cost===null){b.classList.add('locked');}
+  else b.addEventListener('click',onClick);
+  elList.appendChild(b);
+  rows.push({el:b,cost:cost});
+}
+function buildList(){
+  elList.innerHTML='';rows=[];
+  if(S.clickShown){
+    row('кол-во валюты за один клик','сейчас +'+fmt(S.click)+' ₽ за клик → +'+fmt(S.click===1?2:Math.round(S.click*1.5*100)/100),S.clickCost,buyClick);
+  }
+  if(S.autoShown){
+    var allMax=true;
+    if(S.autos.length===0){
+      row('автокликер','сам нажимает на Верити каждые 2 секунды',S.autoCost,function(){buyAuto(-1);});
+      allMax=false;
+    }else{
+      S.autos.forEach(function(a,i){
+        var nm='автокликер'+(S.autos.length>1?' №'+(i+1):'');
+        var sec=(interval(a)/1000).toLocaleString('ru-RU',{maximumFractionDigits:2});
+        if(a.level>=MAX_LEVEL){
+          row(nm,'клик каждые '+sec+' с (максимум)',null);
+        }else{
+          allMax=false;
+          var nx=(BASE_INTERVAL*(1-0.05*a.level)/1000).toLocaleString('ru-RU',{maximumFractionDigits:2});
+          row(nm,'клик каждые '+sec+' с → '+nx+' с',S.autoCost,function(){buyAuto(i);});
+        }
+      });
+    }
+    if(allMax&&S.autos.length>0){
+      row('купить ещё один автокликер','новый автокликер, клик каждые 2 секунды',S.autoCost,function(){buyAuto(-1);});
+    }
+  }
+  if(S.critShown){
+    var cp=S.critPct,nx2=cp===0?5:cp+2.5;
+    if(cp>=75)row('шанс критического клика','сейчас '+fmt(cp)+'% (максимум)',null);
+    else row('шанс критического клика','сейчас '+fmt(cp)+'% → '+fmt(nx2)+'%',S.critCost,buyCrit);
+  }
+  if(S.mulShown){
+    row('множитель критического клика','сейчас ×'+fmt(S.critMul)+' → ×'+fmt(Math.round((S.critMul+.1)*10)/10),S.mulCost,buyMul);
+  }
+  refreshRows();
+}
+function refreshRows(){
+  rows.forEach(function(r){
+    if(r.cost===null)return;
+    r.el.classList.toggle('locked',S.bal<price(r.cost));
+  });
+}
+function update(){
+  elBal.textContent=fmt(S.bal)+'₽';
+  refreshRows();
+}
+
+/* ---------- Цикл автокликеров ---------- */
+var last=performance.now();
+function loop(now){
+  var dt=Math.min(now-last,250);last=now;updateMouth(now);
+  S.autos.forEach(function(a){
+    a.t+=dt;
+    var iv=interval(a),n=0;
+    while(a.t>=iv&&n<5){a.t-=iv;n++;doClick(false);}
+  });
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- Вступление ---------- */
+setTimeout(function(){elBox.classList.add('show');$('hint').classList.add('show');},300);
+var opened=false;
+function openBox(){
+  if(opened)return;opened=true;
+  initAudio();
+  blip(.2);
+  elBox.classList.add('shake');
+  setTimeout(function(){
+    $('hint').classList.add('gone');
+    elV.classList.add('out');
+    elBox.classList.add('gone');
+    $('hud').classList.add('show');$('bottom').classList.add('show');voiceBtn.classList.add('show');
+    setTimeout(function(){
+      elV.classList.add('up','live');
+      S.stage='g25';
+      setTimeout(function(){say('привет, я Верити! твой персональный помощник. нажимай на меня, чтоб получать валюту. твоя задача сейчас — накопить 25 рублей');},500);
+    },700);
+  },500);
+}
+elBox.addEventListener('click',openBox);
+update();
+</script>
+</body>
+</html>
